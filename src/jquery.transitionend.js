@@ -97,7 +97,7 @@
 		
 		if (!selectors || !selectors.length) {
 			selectors = [];
-			var selfSelector = self.selector
+			var selfSelector = self.selector;
 			
 			self.each(function (index, elem) {
 				elem = $(elem);
