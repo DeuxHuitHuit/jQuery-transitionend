@@ -6,13 +6,25 @@
 
 (function ($, _, undefined) {
 	
-	"use strict"; 
+	'use strict';
 	
-	var transitionEndEvent = 'transitionend webkitTransitionEnd oTransitionEnd mozTransitionEnd MSTransitionEnd',
-	addClassTimer = 'add-class-timer',
-	queue = [],
+	var DEBUG = !!window.App ? window.App.debug() : window.DEBUG;
+	var D = 'data-transition-id';
+	var T = 'transitionend';
+	var transitionEndEvent = T + ' webkitTransitionEnd oTransitionEnd mozTransitionEnd MSTransitionEnd';
+	var addClassTimer = 'add-class-timer';
+	var queue = [];
+	var idGenerator = (function () {
+		var current = 0;
+		return function () {
+			return T + '-' + (++current);
+		}
+	})();
+	var selectorize = function (t) {
+		return '*[' + D + '="' + t + '"]';
+	};
 	
-	_forEachSelectorsInQueue = function (fn) { 
+	var _forEachSelectorsInQueue = function (fn) { 
 		if (!!queue.length) {
 			$.each(queue, function eachRemoveFromQueue(index, q) {
 				// check q since it may be undefined
@@ -25,7 +37,7 @@
 		}
 	};
 	
-	if (window.App && !!window.App.debug()) {
+	if (DEBUG) {
 		$.transitionsQueue = function () {
 			return queue;
 		};
@@ -37,7 +49,12 @@
 		_forEachSelectorsInQueue(function eachInQueue(q, index) {
 			
 			$.each(q.selectors, function eachCallbackSelector(selector, value) {
-				q.selectors[selector] = value || target.is(selector);
+				var is = target.is(selector);
+				if (is) {
+					// clean up
+					target.removeAttr(D);
+				}
+				q.selectors[selector] = value || is;
 			});
 			
 			// every selectors are on
@@ -52,15 +69,15 @@
 	});
 	
 	var isSupported = (function (b) {
-		return b.style.WebkitTransition !== undefined || b.style.MozTransition !== undefined || b.style.OTransition !== undefined || b.style.transition !== undefined;
+		return b.style.WebkitTransition !== undefined || b.style.MozTransition !== undefined || 
+			b.style.OTransition !== undefined || b.style.transition !== undefined;
 	})(document.body);
 	
 	$.transitionEnd = isSupported;
 	
 	$.fn.transitionEnd = function (callback, selectors) {
-		var 
-		self = $(this),
-		q = {
+		var self = $(this);
+		var q = {
 			selectors: {},
 			callback: callback,
 			context: this,
@@ -69,7 +86,7 @@
 		
 		if (!isSupported) {
 			setTimeout(function unsupported_transitionEnd() {
-				callback.call(self, $.Event('transitionEnd'));
+				callback.call(self, $.Event(T));
 			}, 20);
 			return self;
 		}
@@ -79,25 +96,31 @@
 		}
 		
 		if (!selectors || !selectors.length) {
-			// use ourself if we can
-			if (!!self.selector) {
-				q.selectors[self.selector] = false;
-			} else {
-				if (!!App.debug()) {
-					console.warn('Element %s has no selector', this);
-				}
-				// exit
-				return self;
-			}
-		} else {
-			$.each(selectors, function (index, value) {
-				if (!!value) {
-					q.selectors[value] = false;
-				} else if (!!App.debug()) {
-					console.warn('Element %s has no selector', index);
+			selectors = [];
+			var selfSelector = self.selector
+			
+			self.each(function (index, elem) {
+				elem = $(elem);
+				// use ourself if we can
+				if (selectors !== false && self.length === 1 && !!selfSelector) {
+					q.selectors[selfSelector] = false;
+				} else {
+					// use generated selector
+					var sel = idGenerator();
+					elem.attr(D, sel);
+					q.selectors[selectorize(sel)] = false;
 				}
 			});
 		}
+		
+		// populate q.selectors based on the selectors input
+		$.each(selectors, function (index, value) {
+			if (!!value) {
+				q.selectors[value] = false;
+			} else if (DEBUG) {
+				console.warn('Element %s has no selector', index);
+			}
+		});
 		
 		// add to queue
 		queue.push(q);
