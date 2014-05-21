@@ -132,10 +132,18 @@
 		var found = false;
 		
 		if (!!selectors) {
-		
+			
 			if (!$.isArray(selectors)) {
 				selectors = [selectors];
 			}
+			
+			$.each(selectors, function (index, selector) {
+				if (!!selector.selector) {
+					selectors[index] = selector.selector
+				} else if (!!selector.length) {
+					selectors[index] = selector.attr(D);
+				}
+			});
 			
 			_forEachSelectorsInQueue(function eachInQueue(q, index) {
 				var localFound = false;
@@ -147,6 +155,9 @@
 					});
 					
 					if (localFound) {
+						// clean up
+						q.context.removeAttr(D);
+						
 						// remove from queue
 						queue.splice(index, 1);
 						
